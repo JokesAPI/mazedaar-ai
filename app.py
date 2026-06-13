@@ -5,7 +5,7 @@ from openai import OpenAI
 app = Flask(__name__)
 
 # ✅ PASTE YOUR OPENAI API KEY HERE
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+OPENAI_API_KEY = os.getenv()
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 
