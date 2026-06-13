@@ -1,4 +1,5 @@
 import os
+import requests
 from flask import Flask, request, jsonify
 from openai import OpenAI
 from flask_cors import CORS
@@ -7,26 +8,67 @@ app = Flask(__name__)
 CORS(app)
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+NEWS_API_KEY = os.getenv("NEWS_API_KEY")
 client = OpenAI(api_key=OPENAI_API_KEY)
 
 conversation_history = {}
 
 def detect_language(text):
     text_lower = text.lower()
-    hindi_words = ["hindi", "हिंदी", "हिन्दी", "मजेदार", "चुटकुला", "बताओ", "क्या", "कैसे"]
-    telugu_words = ["telugu", "తెలుగు", "చెప్పు", "జోక్", "నవ్వు", "ఏమిటి"]
-    for word in hindi_words:
-        if word in text_lower or word in text:
-            return "Hindi"
-    for word in telugu_words:
-        if word in text_lower or word in text:
-            return "Telugu"
-    for char in text:
-        if '\u0900' <= char <= '\u097F':
-            return "Hindi"
-        if '\u0C00' <= char <= '\u0C7F':
-            return "Telugu"
+
+    lang_keywords = {
+        "Hindi":     ["hindi", "हिंदी", "हिन्दी", "मजेदार", "बताओ", "क्या", "कैसे"],
+        "Telugu":    ["telugu", "తెలుగు", "చెప్పు", "జోక్", "ఏమిటి"],
+        "Tamil":     ["tamil", "தமிழ்", "சொல்லு", "என்ன", "எப்படி"],
+        "Kannada":   ["kannada", "ಕನ್ನಡ", "ಹೇಳು", "ಏನು", "ಹೇಗೆ"],
+        "Malayalam": ["malayalam", "മലയാളം", "പറയൂ", "എന്ത്", "എങ്ങനെ"],
+        "Marathi":   ["marathi", "मराठी", "सांग", "काय", "कसे"],
+        "Gujarati":  ["gujarati", "ગુજરાતી", "કહો", "શું", "કેવી"],
+        "Bengali":   ["bengali", "বাংলা", "বলো", "কী", "কেমন"],
+        "Punjabi":   ["punjabi", "ਪੰਜਾਬੀ", "ਦੱਸੋ", "ਕੀ", "ਕਿਵੇਂ"],
+        "Urdu":      ["urdu", "اردو", "بتاؤ", "کیا", "کیسے"],
+    }
+
+    unicode_ranges = {
+        "Hindi":     ('\u0900', '\u097F'),
+        "Tamil":     ('\u0B80', '\u0BFF'),
+        "Telugu":    ('\u0C00', '\u0C7F'),
+        "Kannada":   ('\u0C80', '\u0CFF'),
+        "Malayalam": ('\u0D00', '\u0D7F'),
+        "Marathi":   ('\u0900', '\u097F'),
+        "Gujarati":  ('\u0A80', '\u0AFF'),
+        "Bengali":   ('\u0980', '\u09FF'),
+        "Punjabi":   ('\u0A00', '\u0A7F'),
+        "Urdu":      ('\u0600', '\u06FF'),
+    }
+
+    for lang, keywords in lang_keywords.items():
+        for word in keywords:
+            if word in text_lower or word in text:
+                return lang
+
+    for lang, (start, end) in unicode_ranges.items():
+        for char in text:
+            if start <= char <= end:
+                return lang
+
     return "English"
+
+
+def get_news(topic="India"):
+    try:
+        url = f"https://newsapi.org/v2/everything?q={topic}&language=en&sortBy=publishedAt&pageSize=5&apiKey={NEWS_API_KEY}"
+        response = requests.get(url, timeout=5)
+        data = response.json()
+        if data.get("status") == "ok" and data.get("articles"):
+            articles = data["articles"][:5]
+            news_text = ""
+            for i, a in enumerate(articles, 1):
+                news_text += f"{i}. {a['title']} — {a['source']['name']}\n"
+            return news_text
+        return None
+    except:
+        return None
 
 
 @app.route("/chat", methods=["POST"])
@@ -35,8 +77,10 @@ def chat():
         data = request.get_json()
         if not data:
             return jsonify({"error": "No JSON data received"}), 400
+
         user_input = data.get("message", "").strip()
         session_id = data.get("session_id", "default")
+
         if not user_input:
             return jsonify({"error": "Message is empty"}), 400
 
@@ -46,26 +90,55 @@ def chat():
             conversation_history[session_id] = []
         history = conversation_history[session_id]
 
-        system_prompt = f"""You are Mazedaar AI — a fun, smart, and friendly assistant created for Indian users, especially students learning programming.
+        # Check for news request
+        news_context = ""
+        news_keywords = ["news", "latest", "today", "current", "headlines", "breaking",
+                        "समाचार", "खबर", "వార్తలు", "செய்தி", "ಸುದ್ದಿ", "വാർത്ത"]
+        is_news_request = any(word in user_input.lower() for word in news_keywords)
 
-LANGUAGE RULE:
+        if is_news_request and NEWS_API_KEY:
+            topic = "India"
+            for word in ["cricket", "politics", "technology", "business", "sports", "bollywood"]:
+                if word in user_input.lower():
+                    topic = word
+                    break
+            news = get_news(topic)
+            if news:
+                news_context = f"\n\nLatest news headlines about {topic}:\n{news}\nUse these headlines to answer the user's news question."
+
+        system_prompt = f"""You are Mazedaar AI (also called Genie) — a fun, smart, and friendly assistant for Indian users.
+
+LANGUAGE RULE (MOST IMPORTANT):
 - Detected language: {language}
-- Reply ONLY in {language} always.
-- Hindi → Devanagari script, Telugu → Telugu script, English → English.
+- Reply ONLY in {language}.
+- Hindi/Marathi → Devanagari script
+- Telugu → Telugu script
+- Tamil → Tamil script
+- Kannada → Kannada script
+- Malayalam → Malayalam script
+- Gujarati → Gujarati script
+- Bengali → Bengali script
+- Punjabi → Gurmukhi script
+- Urdu → Urdu script
+- English → English
+- NEVER mix languages.
 
 CODING RULE:
-- If user asks about C, C++, Python, Java, or any programming topic → explain clearly with simple examples.
-- Always show code examples in English (code is always in English).
-- Explain the code in {language}.
-- Keep explanations simple and beginner-friendly.
+- If user asks about C, C++, Python, Java → explain with simple examples.
+- Code always in English, explanation in {language}.
 
 JOKE RULE:
-- If user asks for a joke → tell funny, clean, family-friendly joke in {language}.
+- Jokes must be funny, clean, family-friendly, in {language}, 2-4 lines only.
+
+NEWS RULE:
+- If news headlines are provided below, summarize them in {language}.
+- Present news in a friendly, clear way.
 
 GENERAL RULES:
-- Answer any question helpfully and clearly.
-- Be warm and engaging.
-- If asked who made you, say "I am Mazedaar AI, your friendly assistant!"
+- Answer any question helpfully.
+- Be warm, engaging, concise.
+- If asked who made you: "I am Mazedaar AI (Genie), your friendly assistant!"
+{news_context}
 """
 
         history.append({"role": "user", "content": user_input})
