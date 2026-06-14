@@ -127,7 +127,7 @@
 <div id="chatbox">
 
   <div id="header">
-    <img src="genie.png" style="width:50px; height:50px; border-radius:50%; object-fit:cover; border:2px solid white;" />
+    <div class="avatar">🧞</div>
     <div class="info">
       <h2>Mazedaar AI — Your Best Friend!</h2>
       <p><span id="status-dot"></span>Genie is online • Jokes • News • Weather • Cricket & more!</p>
@@ -166,22 +166,24 @@
       <div class="label">Genie 🧞</div>
       <div class="bubble genie-line">Aye yaar! Kya haal hai? 😄 Main hoon tera best friend Genie!</div>
       <div class="bubble genie-line">Jokes chahiye? News? Weather? Cricket score? Currency? GST? Coding? Sab milega yaar! 🎯</div>
-      <div class="bubble genie-line">Hindi, Telugu, Tamil, Kannada, Malayalam, Marathi, Gujarati, Bengali, Punjabi, Urdu — kisi bhi language mein baat karo!</div>
+      <div class="bubble genie-line">Hindi, Telugu, Tamil, Kannada, Malayalam, Marathi, Gujarati, Bengali, Punjabi, Urdu — kisi bhi language mein baat kar!</div>
     </div>
   </div>
 
   <div id="langLabel">Language: auto-detect</div>
 
   <div id="quick-btns">
-    <button class="quick-btn" onclick="quickSend('jandhyala style telugu joke')">😂 Telugu Joke</button>
-    <button class="quick-btn" onclick="quickSend('raju srivastava style hindi joke')">🤣 Hindi Joke</button>
+    <button class="quick-btn" onclick="quickSend('telugu joke')">😂 Telugu Joke</button>
+    <button class="quick-btn" onclick="quickSend('hindi joke')">🤣 Hindi Joke</button>
     <button class="quick-btn" onclick="quickSend('latest news India today')">📰 News</button>
     <button class="quick-btn" onclick="quickSend('weather Hyderabad')">🌤️ Weather</button>
     <button class="quick-btn" onclick="quickSend('cricket score today')">🏏 Cricket</button>
     <button class="quick-btn" onclick="quickSend('100 USD to INR')">💱 Currency</button>
     <button class="quick-btn" onclick="quickSend('GST on 5000 at 18%')">🧮 GST</button>
-    <button class="quick-btn" onclick="quickSend('give me a unique riddle')">🧩 Riddle</button>
-    <button class="quick-btn" onclick="quickSend('motivational quote in hindi')">💪 Quote</button>
+    <button class="quick-btn" onclick="askTrainNumber()">🚂 Train Info</button>
+    <button class="quick-btn" onclick="askPNR()">🎫 PNR Status</button>
+    <button class="quick-btn" onclick="quickSend('give me a riddle')">🧩 Riddle</button>
+    <button class="quick-btn" onclick="quickSend('motivational quote')">💪 Quote</button>
     <button class="quick-btn" onclick="quickSend('python list example')">💻 Coding</button>
   </div>
 
@@ -272,6 +274,22 @@
   function quickSend(text) {
     document.getElementById("userInput").value = text;
     sendMessage();
+  }
+
+  function askTrainNumber() {
+    const num = prompt("Enter Train Number (e.g. 12759):");
+    if (num && num.trim()) {
+      document.getElementById("userInput").value = "train " + num.trim();
+      sendMessage();
+    }
+  }
+
+  function askPNR() {
+    const pnr = prompt("Enter PNR Number (10 digits):");
+    if (pnr && pnr.trim()) {
+      document.getElementById("userInput").value = "PNR " + pnr.trim();
+      sendMessage();
+    }
   }
 
   document.getElementById("userInput").addEventListener("keydown", e => {
