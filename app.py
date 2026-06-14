@@ -14,36 +14,33 @@ CORS(app)
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 NEWS_API_KEY = os.getenv("NEWS_API_KEY")
 WEATHER_API_KEY = os.getenv("WEATHER_API_KEY")
+CRICAPI_KEY = os.getenv("CRICAPI_KEY")  # get free key from cricapi.com
 client = OpenAI(api_key=OPENAI_API_KEY)
 conversation_history = {}
 
-# ✅ QUALITY TELUGU JOKES - Clear, Funny, Respectful
 JOKES = {
     "Telugu": [
         "మాస్టర్: వెంకటేశ్వరరావు గారూ, మీ కొడుకు పరీక్షలో ఎందుకు ఫెయిల్ అయ్యాడు?\nతండ్రి: సార్, వాడు చాలా నిజాయితీగా ఉంటాడు.\nమాస్టర్: అంటే?\nతండ్రి: పక్కవాడి పేపర్ చూడలేదు సార్! 😄",
         "డాక్టర్: మీకు ఇంకా ఆరు నెలలే ఉన్నాయి.\nపేషెంట్: డాక్టర్ గారూ, బిల్లు కట్టలేను.\nడాక్టర్: సరే, మరో ఆరు నెలలు ఇస్తాను! 😄",
         "టీచర్: సుబ్బారావు గారూ, మీ అబ్బాయి స్కూల్‌కి ఎందుకు రాలేదు?\nతండ్రి: జ్వరంగా ఉంది సార్.\nటీచర్: నిన్న కూడా అదే చెప్పారు.\nతండ్రి: వాడికి చాలా నిదానంగా నయమవుతుందండి! 😄",
         "భర్త: ఏమండీ, ఈ రోజు వంట చాలా బాగుంది!\nభార్య: నిజంగానా?\nభర్త: అవునండీ, హోటల్‌లో నేర్పించారా? 😄",
-        "అమ్మ: బేటా, నువ్వు ఎప్పుడు పెళ్ళి చేసుకుంటావు?\nకొడుకు: అమ్మా, పెళ్ళికి ముందు నేను బాగా నిద్రపోతాను.\nఅమ్మ: పెళ్ళి తర్వాత?\nకొడుకు: తర్వాత అమ్మ ప్రశ్నలే నిద్రపోనివ్వవు! 😄",
-        "విద్యార్థి: సార్, మీరు చెప్పింది నాకు అర్థం కాలేదు.\nటీచర్: ఎందుకు?\nవిద్యార్థి: మీరు చెప్పేటప్పుడు నేను నిద్రపోయాను సార్! 😄",
-        "పోలీస్: ఆగండి! ఎందుకు అంత వేగంగా వెళ్తున్నారు?\nడ్రైవర్: బ్రేకులు పని చేయట్లేదు అయ్యా.\nపోలీస్: అందుకే ఆపమని సైన్ చేశాను!\nడ్రైవర్: అందుకే ఆపలేదు అయ్యా! 😄",
-        "భార్య: విన్నారా? పక్కింటి వారు రోజూ గొడవ పడతారు.\nభర్త: వారిద్దరూ అదృష్టవంతులు.\nభార్య: గొడవ పడితే అదృష్టమా?\nభర్త: కనీసం మాట్లాడుకుంటున్నారు కదా! 😄",
         "విద్యార్థి: సార్, నేను ఎందుకు ఫెయిల్ అయ్యాను? 35 మార్కులు వచ్చాయి.\nటీచర్: 36 వస్తే పాస్.\nవిద్యార్థి: మీరు 36 రాయొచ్చు కదా సార్?\nటీచర్: నువ్వు పరీక్షలో 36 రాయొచ్చు కదా! 😄",
+        "పోలీస్: ఆగండి! ఎందుకు అంత వేగంగా వెళ్తున్నారు?\nడ్రైవర్: బ్రేకులు పని చేయట్లేదు అయ్యా.\nపోలీస్: అందుకే ఆపమని సైన్ చేశాను!\nడ్రైవర్: అందుకే ఆపలేదు అయ్యా! 😄",
         "అబ్బాయి: నాన్నగారూ, నాకు బైక్ కొనిపెట్టండి.\nనాన్న: చదువు పూర్తయిన తర్వాత.\nఅబ్బాయి: అప్పటికి నడవడానికి కూడా కష్టంగా ఉంటుందండి! 😄",
+        "భార్య: విన్నారా? పక్కింటి వారు రోజూ గొడవ పడతారు.\nభర్త: వారిద్దరూ అదృష్టవంతులు.\nభార్య: గొడవ పడితే అదృష్టమా?\nభర్త: కనీసం మాట్లాడుకుంటున్నారు కదా! 😄",
     ],
     "Hindi": [
         "टीचर: बताओ, पानी का फॉर्मूला क्या है?\nपप्पू: H-I-J-K-L-M-N-O!\nटीचर: ये क्या है?\nपप्पू: मैडम, आपने ही कहा था H to O! 😄",
         "पत्नी: सुनो जी, आज खाना नहीं बनाऊंगी।\nपति: क्यों?\nपत्नी: डाइट पर हूं।\nपति: तो मैं भी डाइट पर हूं... होटल चलते हैं! 😄",
-        "डॉक्टर: आपको आराम चाहिए।\nमरीज: ठीक है।\nडॉक्टर: और ये दवाई भी लेना।\nमरीज: डॉक्टर साहब, आराम करूं या दवाई लूं? 😄",
         "बेटा: पापा, मुझे बाइक चाहिए।\nपापा: पढ़ाई पूरी करो पहले।\nबेटा: तब तक तो उड़ने वाली कारें आ जाएंगी! 😄",
-        "टीचर: अगर 5 बच्चे हैं और तुम्हारे पास 5 टॉफी हैं तो?\nपप्पू: सब मेरी!\nटीचर: क्यों?\nपप्पू: क्योंकि बाकी 4 मेरे दोस्त नहीं हैं! 😄",
         "मरीज: डॉक्टर साहब, सब मुझे नजरअंदाज करते हैं।\nडॉक्टर: अगला मरीज आए! 😄",
+        "टीचर: अगर 5 बच्चे हैं और तुम्हारे पास 5 टॉफी हैं तो?\nपप्पू: सब मेरी!\nटीचर: क्यों?\nपप्पू: क्योंकि बाकी 4 मेरे दोस्त नहीं हैं! 😄",
     ],
     "Tamil": [
         "மாஸ்டர்: ராமு, தண்ணீரின் சூத்திரம் என்ன?\nராமு: H-I-J-K-L-M-N-O சார்!\nமாஸ்டர்: இது என்ன?\nராமு: நீங்களே சொன்னீங்க சார், H to O! 😄",
         "மனைவி: இன்னிக்கு சமைக்க மாட்டேன்.\nகணவன்: ஏன்?\nமனைவி: டயட்டில் இருக்கேன்.\nகணவன்: நானும் டயட்டில் இருக்கேன்... ஹோட்டல் போலாம்! 😄",
-        "டாக்டர்: உங்களுக்கு ஓய்வு வேணும்.\nபேஷன்ட்: சரி.\nடாக்டர்: இந்த மாத்திரையும் சாப்பிடணும்.\nபேஷன்ட்: ஓய்வா எடுக்கணும் இல்லன்னா மாத்திரையா? 😄",
         "மகன்: அப்பா, பைக் வேணும்.\nஅப்பா: படிப்பு முடிஞ்சதும் வாங்கிக்குவோம்.\nமகன்: அப்போ நடக்கவே கஷ்டமா இருக்கும்ல! 😄",
+        "நோயாளி: டாக்டர், எல்லாரும் என்னை பார்க்கவே மாட்டேங்கிறாங்க.\nடாக்டர்: அடுத்தவர் வாங்க! 😄",
     ],
     "Kannada": [
         "ಮಾಸ್ಟರ್: ರಾಮು, ನೀರಿನ ಸೂತ್ರ ಏನು?\nರಾಮು: H-I-J-K-L-M-N-O ಸರ್!\nಮಾಸ್ಟರ್: ಇದು ಏನು?\nರಾಮು: ನೀವೇ ಹೇಳಿದ್ರಿ ಸರ್, H to O! 😄",
@@ -53,7 +50,6 @@ JOKES = {
     "Malayalam": [
         "ടീച്ചർ: രാമു, വെള്ളത്തിന്റെ ഫോർമുല എന്താ?\nരാമു: H-I-J-K-L-M-N-O ടീച്ചർ!\nടീച്ചർ: ഇതെന്താ?\nരാമു: നിങ്ങൾ തന്നെ പറഞ്ഞല്ലോ, H to O! 😄",
         "ഭാര്യ: ഇന്ന് പാചകം ഇല്ല.\nഭർത്താവ്: എന്തുകൊണ്ട്?\nഭാര്യ: ഡയറ്റ് ആണ്.\nഭർത്താവ്: ഞാനും ഡയറ്റ് ആണ്... ഹോട്ടലിൽ പോകാം! 😄",
-        "രോഗി: ഡോക്ടർ, എല്ലാവരും എന്നെ അവഗണിക്കുന്നു.\nഡോക്ടർ: അടുത്ത രോഗി വരൂ! 😄",
     ],
     "Marathi": [
         "मास्तर: राम्या, पाण्याचं सूत्र काय?\nराम्या: H-I-J-K-L-M-N-O सर!\nमास्तर: हे काय आहे?\nराम्या: तुम्हीच सांगितलं सर, H to O! 😄",
@@ -163,67 +159,80 @@ def get_exchange_rate(from_cur, to_cur, amount="1"):
 
 def get_cricket_score():
     try:
-        # Try cricbuzz-style free API
-        url = "https://api.cricapi.com/v1/currentMatches?apikey=free&offset=0"
-        r = requests.get(url, timeout=8)
-        data = r.json()
-        if data.get("data") and len(data["data"]) > 0:
-            scores = ""
-            for match in data["data"][:5]:
-                name = match.get("name","Match")
-                status = match.get("status","In Progress")
-                scores += f"{name}: {status}\n"
-            return scores if scores else None
+        # Use cricapi.com with key if available
+        if CRICAPI_KEY:
+            url = f"https://api.cricapi.com/v1/currentMatches?apikey={CRICAPI_KEY}&offset=0"
+            r = requests.get(url, timeout=8)
+            data = r.json()
+            if data.get("data") and len(data["data"]) > 0:
+                scores = ""
+                for match in data["data"][:5]:
+                    name = match.get("name","Match")
+                    status = match.get("status","In Progress")
+                    score_data = match.get("score",[])
+                    score_str = ""
+                    for s in score_data:
+                        score_str += f"{s.get('inning','')}: {s.get('r',0)}/{s.get('w',0)} ({s.get('o',0)} ov) "
+                    scores += f"{name}\n{score_str}\nStatus: {status}\n\n"
+                return scores
     except: pass
-    # Fallback — use news API for cricket
+
+    # Fallback: cricket news
     try:
         if NEWS_API_KEY:
-            url = f"https://newsapi.org/v2/everything?q=cricket+score+today&language=en&sortBy=publishedAt&pageSize=3&apiKey={NEWS_API_KEY}"
+            url = f"https://newsapi.org/v2/everything?q=cricket+score+india&language=en&sortBy=publishedAt&pageSize=4&apiKey={NEWS_API_KEY}"
             r = requests.get(url, timeout=5)
             data = r.json()
             if data.get("articles"):
-                scores = ""
-                for a in data["articles"][:3]:
-                    scores += f"{a['title']}\n"
-                return scores
+                result = "Latest Cricket News:\n"
+                for a in data["articles"][:4]:
+                    result += f"- {a['title']}\n"
+                return result
     except: pass
     return None
 
 
 def get_train_info(train_number):
     try:
-        url = f"https://indianrailapi.com/api/v2/TrainSchedule/apikey/free/TrainNumber/{train_number}/"
-        r = requests.get(url, timeout=8)
+        # Using free RailwayAPI
+        url = f"https://www.railyatri.in/api/1.3/train_search.json?train_num={train_number}&locale=en"
+        headers = {"User-Agent": "Mozilla/5.0"}
+        r = requests.get(url, timeout=8, headers=headers)
         data = r.json()
-        if data.get("TrainSchedule"):
-            train = data["TrainSchedule"]
-            name = train.get("TrainName","Unknown")
-            stations = train.get("Stations",[])
+        if data.get("train_schedule"):
+            schedule = data["train_schedule"]
+            name = schedule.get("train_name", "Unknown")
+            stations = schedule.get("station_details", [])
             result = f"Train {train_number} - {name}\n"
-            for s in stations[:8]:
-                result += f"{s.get('StationName','')} — Arr: {s.get('ArrivalTime','--')} Dep: {s.get('DepartureTime','--')}\n"
+            result += "Route:\n"
+            for s in stations[:10]:
+                result += f"  {s.get('station_name','')} ({s.get('station_code','')}) — Arr: {s.get('arr_time','--')} Dep: {s.get('dep_time','--')}\n"
             return result
     except: pass
-    # Fallback using AI knowledge
-    return None
+
+    # Fallback: use AI knowledge about train
+    return f"Train {train_number}: Please check NTES app (railmadad.indianrailways.gov.in) or IRCTC for live train running status and route details."
 
 
 def check_pnr(pnr_number):
     try:
-        url = f"https://indianrailapi.com/api/v2/PNRCheck/apikey/free/PNRNumber/{pnr_number}/"
-        r = requests.get(url, timeout=8)
+        url = f"https://www.railyatri.in/api/1.3/pnr_status.json?pnr={pnr_number}&locale=en"
+        headers = {"User-Agent": "Mozilla/5.0"}
+        r = requests.get(url, timeout=8, headers=headers)
         data = r.json()
-        if data.get("Pnr"):
-            p = data["Pnr"]
+        if data.get("pnr_status"):
+            p = data["pnr_status"]
             result = f"PNR: {pnr_number}\n"
-            result += f"Train: {p.get('TrainNo','')} - {p.get('TrainName','')}\n"
-            result += f"Date: {p.get('DateOfJourney','')}\n"
-            result += f"From: {p.get('From','')} To: {p.get('To','')}\n"
-            for passenger in p.get("PassengerList",[]):
-                result += f"Passenger {passenger.get('Number','')}: {passenger.get('CurrentStatus','')}\n"
+            result += f"Train: {p.get('train_num','')} - {p.get('train_name','')}\n"
+            result += f"Date: {p.get('doj','')}\n"
+            result += f"From: {p.get('from_station','')} To: {p.get('to_station','')}\n"
+            result += f"Class: {p.get('class','')}\n"
+            passengers = p.get("pax_details",[])
+            for i, pax in enumerate(passengers, 1):
+                result += f"Passenger {i}: {pax.get('current_status','Unknown')}\n"
             return result
     except: pass
-    return None
+    return f"PNR {pnr_number}: For live PNR status please check:\n- IRCTC app\n- indianrail.gov.in\n- NTES app\n- SMS PNR {pnr_number} to 139"
 
 
 def get_world_time(timezone_name):
@@ -254,8 +263,8 @@ def chat():
             conversation_history[session_id] = []
         history = conversation_history[session_id]
 
-        # ---- JOKE HANDLING ----
-        joke_words = ["joke","jokes","funny","laugh","జోక్","చుటకుల","చుటకులు","హాస్యం","चुटकुला","हंसाओ","நகைச்சுவை","ಜೋಕ್","തമാശ","জোকস","ਜੋਕ","مذاق"]
+        # JOKE HANDLING
+        joke_words = ["joke","jokes","funny","laugh","జోక్","చుటకుల","హాస్యం","चुटकुला","हंसाओ","நகைச்சுவை","ಜೋಕ್","തമാശ","জোকস","ਜੋਕ","مذاق"]
         is_joke = any(w in lower for w in joke_words)
 
         if is_joke:
@@ -272,16 +281,15 @@ def chat():
             conversation_history[used_key].append(joke)
 
             wrap_prompt = f"""You are Genie, a warm and friendly AI assistant.
-The user wants a joke in {language}.
-Present this joke warmly and respectfully in {language} ONLY.
-Add ONE friendly line before the joke.
-Add ONE friendly line after the joke.
-Use respectful language — never use slang like "రా" or "da" or disrespectful words.
+Present this joke to the user warmly in {language} ONLY.
+Add ONE short friendly line before the joke.
+Add ONE short friendly reaction after.
+Use respectful polite language always.
+Never use slang or disrespectful words.
 No markdown symbols like ** or ##.
 
-Joke to present:
+Joke:
 {joke}"""
-
             response = client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[{"role":"user","content":wrap_prompt}],
@@ -318,13 +326,14 @@ Joke to present:
                 if t:
                     extra_context += f"\nCurrent time: {t}\n"
 
-            # Currency — supports all major currencies including SGD
+            # Currency
             currency_map = {
                 "usd":"USD","dollar":"USD","sgd":"SGD","singapore":"SGD",
                 "sar":"SAR","riyal":"SAR","saudi":"SAR","aed":"AED","dirham":"AED",
-                "uae":"AED","gbp":"GBP","pound":"GBP","eur":"EUR","euro":"EUR",
-                "aud":"AUD","cad":"CAD","jpy":"JPY","yen":"JPY","kwd":"KWD",
-                "kuwait":"KWD","qar":"QAR","qatar":"QAR","bhd":"BHD","omr":"OMR"
+                "gbp":"GBP","pound":"GBP","eur":"EUR","euro":"EUR",
+                "aud":"AUD","cad":"CAD","jpy":"JPY","yen":"JPY",
+                "kwd":"KWD","kuwait":"KWD","qar":"QAR","bhd":"BHD","omr":"OMR",
+                "myr":"MYR","malaysia":"MYR","thb":"THB","uae":"AED"
             }
             numbers = re.findall(r'\d+\.?\d*', user_input)
             amount = numbers[0] if numbers else "1"
@@ -332,16 +341,16 @@ Joke to present:
                 if keyword in lower:
                     rate = get_exchange_rate(cur_code, "INR", amount)
                     if rate:
-                        extra_context += f"\nLive Currency Rate: {rate}\n"
+                        extra_context += f"\nLive Currency: {rate}\n"
                     break
 
             # Cricket
-            if any(w in lower for w in ["cricket","ipl","score","match","t20","test match","odi"]):
+            if any(w in lower for w in ["cricket","ipl","score","match","t20","odi","test"]):
                 score = get_cricket_score()
                 if score:
-                    extra_context += f"\nLive Cricket Scores:\n{score}\n"
+                    extra_context += f"\nCricket:\n{score}\n"
                 else:
-                    extra_context += "\nCricket: Could not fetch live scores right now. Please check cricbuzz.com for latest scores.\n"
+                    extra_context += "\nCricket scores not available right now. Check cricbuzz.com or ESPN Cricinfo for live scores.\n"
 
             # GST
             if any(w in lower for w in ["gst","tax"]):
@@ -349,30 +358,23 @@ Joke to present:
                 if len(numbers_gst) >= 2:
                     amt, pct = float(numbers_gst[0]), float(numbers_gst[1])
                     gst_amt = round(amt * pct / 100, 2)
-                    extra_context += f"\nGST Calculation: Amount=₹{amt}, GST@{pct}%=₹{gst_amt}, Total=₹{round(amt+gst_amt,2)}\n"
+                    extra_context += f"\nGST: Amount=Rs.{amt}, GST@{pct}%=Rs.{gst_amt}, Total=Rs.{round(amt+gst_amt,2)}\n"
 
-            # Train info
-            train_keywords = ["train","pnr","railway","irctc","rail"]
-            if any(w in lower for w in train_keywords):
-                # Check for PNR (10 digit number)
+            # Train & PNR
+            if any(w in lower for w in ["train","pnr","railway","irctc","rail","రైలు","ट्रेन","ரெயில்"]):
                 pnr_match = re.search(r'\b\d{10}\b', user_input)
-                # Check for train number (4-5 digit number)
                 train_match = re.search(r'\b\d{4,5}\b', user_input)
 
                 if pnr_match:
                     pnr = pnr_match.group()
                     pnr_info = check_pnr(pnr)
-                    if pnr_info:
-                        extra_context += f"\nPNR Status:\n{pnr_info}\n"
-                    else:
-                        extra_context += f"\nPNR {pnr}: Could not fetch live status. Please check indianrail.gov.in or NTES app for PNR status.\n"
+                    extra_context += f"\nPNR Status:\n{pnr_info}\n"
                 elif train_match:
                     train_num = train_match.group()
                     train_info = get_train_info(train_num)
-                    if train_info:
-                        extra_context += f"\nTrain Info:\n{train_info}\n"
-                    else:
-                        extra_context += f"\nTrain {train_num}: Please check indianrail.gov.in or NTES app for live train status.\n"
+                    extra_context += f"\nTrain Info:\n{train_info}\n"
+                else:
+                    extra_context += "\nFor train info please provide train number (e.g. 12759) or PNR number (10 digits).\n"
 
             system_prompt = f"""You are Genie — a warm, helpful, and friendly AI assistant.
 
@@ -381,27 +383,24 @@ Detected language: {language}
 Reply ONLY in {language}.
 Telugu=తెలుగు only, Hindi=हिंदी only, Tamil=தமிழ் only
 Kannada=ಕನ್ನಡ only, Malayalam=മലയാളം only
-Never use English in non-English responses except for code or numbers.
+Never use English in non-English responses except for numbers/codes/train info.
 
-RESPECT RULE — VERY IMPORTANT:
-Always use respectful, polite language.
-Telugu: use "మీరు", "మీకు", "అండి" — never "రా", "డా", "నువ్వు" with strangers
-Hindi: use "आप", "आपको" — always respectful
-All languages: treat user like a respected guest
+RESPECT RULE:
+Always use respectful polite language.
+Telugu: use మీరు, మీకు, అండి — never రా or నువ్వు with strangers.
+Hindi: always use आप, आपको.
 
 PERSONALITY:
-- Warm, helpful, friendly like a trusted friend
-- Never rude or disrespectful
-- Encouraging and supportive
+Warm, helpful, friendly like a trusted knowledgeable friend.
+Encouraging and supportive always.
 
 {extra_context}
 
-RESPONSE RULES:
-- No markdown ** or ## or backticks
-- Each sentence on new line
-- Give accurate information only
-- If data not available, say honestly and suggest where to check
-- End warmly
+RULES:
+No markdown ** or ## or backticks.
+Each sentence on new line.
+Give accurate info only — if unsure say honestly.
+End response warmly.
 """
 
             history.append({"role":"user","content":user_input})
