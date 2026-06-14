@@ -493,6 +493,37 @@ End response warmly.
         return jsonify({"error": f"Server error: {str(e)}"}), 500
 
 
+@app.route("/debug-train/<train_number>", methods=["GET"])
+def debug_train(train_number):
+    """Debug route to test RapidAPI directly"""
+    try:
+        if not RAPIDAPI_KEY:
+            return jsonify({"error": "RAPIDAPI_KEY not set"})
+
+        headers = {
+            "x-rapidapi-key": RAPIDAPI_KEY,
+            "x-rapidapi-host": "irctc1.p.rapidapi.com"
+        }
+
+        # Test endpoint 1
+        url1 = "https://irctc1.p.rapidapi.com/api/v1/liveTrainStatus"
+        r1 = requests.get(url1, headers=headers, params={"trainNo": train_number, "startDay": "1"}, timeout=10)
+
+        # Test endpoint 2
+        url2 = "https://irctc1.p.rapidapi.com/api/v3/getTrainSchedule"
+        r2 = requests.get(url2, headers=headers, params={"trainNo": train_number}, timeout=10)
+
+        return jsonify({
+            "rapidapi_key_set": bool(RAPIDAPI_KEY),
+            "endpoint1_status": r1.status_code,
+            "endpoint1_response": r1.json(),
+            "endpoint2_status": r2.status_code,
+            "endpoint2_response": r2.json(),
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)})
+
+
 @app.route("/clear", methods=["POST"])
 def clear_history():
     data = request.get_json()
