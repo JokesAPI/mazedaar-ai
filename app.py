@@ -17,34 +17,62 @@ client = OpenAI(api_key=OPENAI_API_KEY)
 
 conversation_history = {}
 
-# Famous joke authors/styles per language
 JOKE_STYLES = {
-    "Telugu": "Jandhyala style — sharp wit, family drama, double meaning clean humor, unexpected punchlines like in Jandhyala movies. Characters like innocent people getting confused, teacher-student, husband-wife classic Telugu comedy.",
-    "Hindi": "Jaspal Bhatti and Raju Srivastava style — sharp social comedy, common man problems, political satire kept clean, everyday Indian life humor with unexpected twist.",
-    "Tamil": "Vadivelu and Vivek style — exaggerated reactions, wordplay, social commentary, unexpected logical twists.",
-    "Kannada": "Ramesh Aravind style — smart wordplay, family situations, clever observations about Kannada culture.",
-    "Malayalam": "Innocent and Sreenivasan style — subtle humor, intelligent wordplay, everyday Kerala life situations.",
-    "Marathi": "Pu La Deshpande style — witty observations, cultural references, intelligent humor.",
-    "Bengali": "classic Bangla humor — wordplay, everyday situations, clever observations.",
-    "English": "classic English wit — dry humor, unexpected punchlines, clever wordplay like British comedy."
+    "Telugu": "Jandhyala style Telugu comedy — sharp wit, family drama, unexpected punchlines. Write ENTIRELY in Telugu script.",
+    "Hindi": "Raju Srivastava and Jaspal Bhatti style — social comedy, common man humor. Write ENTIRELY in Hindi Devanagari script.",
+    "Tamil": "Vadivelu and Vivek style — exaggerated reactions, wordplay. Write ENTIRELY in Tamil script.",
+    "Kannada": "Ramesh Aravind style — smart wordplay, family situations. Write ENTIRELY in Kannada script.",
+    "Malayalam": "Innocent and Sreenivasan style — subtle intelligent humor. Write ENTIRELY in Malayalam script.",
+    "Marathi": "Pu La Deshpande style — witty observations. Write ENTIRELY in Marathi (Devanagari script).",
+    "Bengali": "Classic Bangla humor — clever wordplay. Write ENTIRELY in Bengali script.",
+    "Gujarati": "Classic Gujarati humor. Write ENTIRELY in Gujarati script.",
+    "Punjabi": "Classic Punjabi humor — energetic fun. Write ENTIRELY in Punjabi Gurmukhi script.",
+    "Urdu": "Classic Urdu wit — poetic humor. Write ENTIRELY in Urdu script.",
+    "English": "Classic English dry wit — unexpected punchlines.",
 }
 
+# Language detection — checks for language name keywords first
 def detect_language(text):
     text_lower = text.lower()
-    lang_keywords = {
-        "Hindi":     ["hindi", "हिंदी", "हिन्दी", "मजेदार", "बताओ", "क्या", "कैसे", "यार", "दोस्त"],
-        "Telugu":    ["telugu", "తెలుగు", "చెప్పు", "జోక్", "ఏమిటి", "నీకు", "మనం"],
-        "Tamil":     ["tamil", "தமிழ்", "சொல்லு", "என்ன", "எப்படி"],
-        "Kannada":   ["kannada", "ಕನ್ನಡ", "ಹೇಳು", "ಏನು", "ಹೇಗೆ"],
-        "Malayalam": ["malayalam", "മലയാളം", "പറയൂ", "എന്ത്", "എങ്ങനെ"],
-        "Marathi":   ["marathi", "मराठी", "सांग", "काय", "कसे"],
-        "Gujarati":  ["gujarati", "ગુજરાતી", "કહો", "શું", "કેવી"],
-        "Bengali":   ["bengali", "বাংলা", "বলো", "কী", "কেমন"],
-        "Punjabi":   ["punjabi", "ਪੰਜਾਬੀ", "ਦੱਸੋ", "ਕੀ", "ਕਿਵੇਂ"],
-        "Urdu":      ["urdu", "اردو", "بتاؤ", "کیا", "کیسے"],
+
+    # Check explicit language name mentions FIRST
+    explicit = {
+        "telugu": "Telugu",
+        "hindi": "Hindi",
+        "tamil": "Tamil",
+        "kannada": "Kannada",
+        "malayalam": "Malayalam",
+        "marathi": "Marathi",
+        "gujarati": "Gujarati",
+        "bengali": "Bengali",
+        "punjabi": "Punjabi",
+        "urdu": "Urdu",
+        "english": "English",
     }
+    for keyword, lang in explicit.items():
+        if keyword in text_lower:
+            return lang
+
+    # Check native script keywords
+    lang_keywords = {
+        "Hindi":     ["हिंदी", "हिन्दी", "मजेदार", "बताओ", "क्या", "कैसे", "यार"],
+        "Telugu":    ["తెలుగు", "చెప్పు", "జోక్", "ఏమిటి", "నీకు"],
+        "Tamil":     ["தமிழ்", "சொல்லு", "என்ன", "எப்படி"],
+        "Kannada":   ["ಕನ್ನಡ", "ಹೇಳು", "ಏನು", "ಹೇಗೆ"],
+        "Malayalam": ["മലയാളം", "പറയൂ", "എന്ത്", "എങ്ങനെ"],
+        "Marathi":   ["मराठी", "सांग", "काय", "कसे"],
+        "Gujarati":  ["ગુજરાતી", "કહો", "શું"],
+        "Bengali":   ["বাংলা", "বলো", "কী"],
+        "Punjabi":   ["ਪੰਜਾਬੀ", "ਦੱਸੋ", "ਕੀ"],
+        "Urdu":      ["اردو", "بتاؤ", "کیا"],
+    }
+    for lang, keywords in lang_keywords.items():
+        for word in keywords:
+            if word in text:
+                return lang
+
+    # Check Unicode script ranges
     unicode_ranges = {
-        "Hindi":     ('\u0900', '\u097F'),
         "Tamil":     ('\u0B80', '\u0BFF'),
         "Telugu":    ('\u0C00', '\u0C7F'),
         "Kannada":   ('\u0C80', '\u0CFF'),
@@ -53,15 +81,13 @@ def detect_language(text):
         "Bengali":   ('\u0980', '\u09FF'),
         "Punjabi":   ('\u0A00', '\u0A7F'),
         "Urdu":      ('\u0600', '\u06FF'),
+        "Hindi":     ('\u0900', '\u097F'),
     }
-    for lang, keywords in lang_keywords.items():
-        for word in keywords:
-            if word in text_lower or word in text:
-                return lang
     for lang, (start, end) in unicode_ranges.items():
         for char in text:
             if start <= char <= end:
                 return lang
+
     return "English"
 
 
@@ -95,7 +121,7 @@ def get_weather(city):
             humidity = data["main"]["humidity"]
             desc = data["weather"][0]["description"].capitalize()
             wind = data["wind"]["speed"]
-            return f"Weather in {city}: {desc}, Temperature: {temp}°C (Feels like {feels}°C), Humidity: {humidity}%, Wind: {wind} m/s"
+            return f"Weather in {city}: {desc}, Temp: {temp}°C (Feels {feels}°C), Humidity: {humidity}%, Wind: {wind} m/s"
     except:
         pass
     return None
@@ -103,29 +129,28 @@ def get_weather(city):
 
 def get_cricket_score():
     try:
-        # Using cricapi free tier
         url = "https://api.cricapi.com/v1/currentMatches?apikey=free&offset=0"
         r = requests.get(url, timeout=5)
         data = r.json()
         if data.get("data"):
             scores = ""
             for match in data["data"][:3]:
-                scores += f"{match.get('name', 'Match')}: {match.get('status', 'In Progress')}\n"
+                scores += f"{match.get('name','Match')}: {match.get('status','In Progress')}\n"
             return scores if scores else None
     except:
         pass
     return None
 
 
-def get_exchange_rate(from_currency, to_currency, amount):
+def get_exchange_rate(from_cur, to_cur, amount):
     try:
-        url = f"https://api.exchangerate-api.com/v4/latest/{from_currency.upper()}"
+        url = f"https://api.exchangerate-api.com/v4/latest/{from_cur.upper()}"
         r = requests.get(url, timeout=5)
         data = r.json()
-        if data.get("rates") and to_currency.upper() in data["rates"]:
-            rate = data["rates"][to_currency.upper()]
+        if data.get("rates") and to_cur.upper() in data["rates"]:
+            rate = data["rates"][to_cur.upper()]
             converted = round(float(amount) * rate, 2)
-            return f"{amount} {from_currency.upper()} = {converted} {to_currency.upper()} (Rate: {rate})"
+            return f"{amount} {from_cur.upper()} = {converted} {to_cur.upper()} (Rate: {rate})"
     except:
         pass
     return None
@@ -161,142 +186,115 @@ def chat():
             conversation_history[session_id] = []
         history = conversation_history[session_id]
 
-        # Extra context from APIs
         extra_context = ""
-        random_joke_seed = random.randint(1, 9999)
+        random_seed = random.randint(1, 99999)
 
         # Weather
-        weather_keywords = ["weather", "temperature", "rain", "humidity", "climate", "వాతావరణం", "मौसम", "காலநிலை"]
-        if any(w in lower for w in weather_keywords):
+        if any(w in lower for w in ["weather", "temperature", "rain", "humidity", "climate"]):
             words = user_input.split()
             city = "Hyderabad"
             for i, w in enumerate(words):
-                if w.lower() in ["weather", "in", "of", "at"]:
-                    if i + 1 < len(words):
-                        city = words[i + 1]
+                if w.lower() in ["weather", "in", "of", "at"] and i + 1 < len(words):
+                    city = words[i + 1]
             weather = get_weather(city)
             if weather:
                 extra_context += f"\nWeather data: {weather}\n"
 
         # News
-        news_keywords = ["news", "latest", "today", "headlines", "breaking", "current", "समाचार", "వార్తలు", "செய்தி"]
-        if any(w in lower for w in news_keywords):
+        if any(w in lower for w in ["news", "latest", "headlines", "breaking", "today"]):
             topic = "India"
-            for word in ["cricket", "politics", "technology", "business", "sports", "bollywood", "modi", "ipl"]:
+            for word in ["cricket", "politics", "technology", "business", "sports", "bollywood", "ipl"]:
                 if word in lower:
                     topic = word
                     break
             news = get_news(topic)
             if news:
-                extra_context += f"\nLatest news about {topic}:\n{news}\n"
+                extra_context += f"\nLatest {topic} news:\n{news}\n"
 
         # Time
-        time_keywords = ["time", "date", "day", "clock", "समय", "సమయం", "நேரம்"]
-        if any(w in lower for w in time_keywords):
+        if any(w in lower for w in ["time", "date", "day", "clock"]):
             if timezone:
                 t = get_world_time(timezone)
                 if t:
-                    extra_context += f"\nCurrent time in selected timezone: {t}\n"
+                    extra_context += f"\nCurrent time: {t}\n"
             else:
                 ist = get_world_time("Asia/Kolkata")
-                extra_context += f"\nCurrent IST: {ist}\n"
+                extra_context += f"\nIST: {ist}\n"
 
         # Currency
-        currency_keywords = ["usd", "inr", "sar", "aed", "gbp", "eur", "dollar", "rupee", "riyal", "convert", "exchange"]
-        if any(w in lower for w in currency_keywords):
+        if any(w in lower for w in ["usd", "inr", "sar", "aed", "gbp", "eur", "dollar", "rupee", "riyal", "convert"]):
             import re
             numbers = re.findall(r'\d+\.?\d*', user_input)
             amount = numbers[0] if numbers else "1"
-            if "usd" in lower or "dollar" in lower:
-                rate = get_exchange_rate("USD", "INR", amount)
-            elif "sar" in lower or "riyal" in lower:
-                rate = get_exchange_rate("SAR", "INR", amount)
-            elif "aed" in lower or "dirham" in lower:
-                rate = get_exchange_rate("AED", "INR", amount)
-            elif "gbp" in lower or "pound" in lower:
-                rate = get_exchange_rate("GBP", "INR", amount)
-            elif "eur" in lower or "euro" in lower:
-                rate = get_exchange_rate("EUR", "INR", amount)
-            else:
-                rate = get_exchange_rate("USD", "INR", "1")
-            if rate:
-                extra_context += f"\nCurrency: {rate}\n"
+            pairs = [("usd","inr"),("sar","inr"),("aed","inr"),("gbp","inr"),("eur","inr")]
+            for f, t in pairs:
+                if f in lower:
+                    rate = get_exchange_rate(f, t, amount)
+                    if rate:
+                        extra_context += f"\nCurrency: {rate}\n"
+                    break
 
         # Cricket
-        cricket_keywords = ["cricket", "ipl", "score", "match", "test match", "క్రికెట్", "क्रिकेट"]
-        if any(w in lower for w in cricket_keywords):
+        if any(w in lower for w in ["cricket", "ipl", "score", "match"]):
             score = get_cricket_score()
             if score:
                 extra_context += f"\nLive Cricket:\n{score}\n"
 
-        # GST Calculator
-        gst_keywords = ["gst", "tax", "జిఎస్టి", "टैक्स"]
-        if any(w in lower for w in gst_keywords):
+        # GST
+        if any(w in lower for w in ["gst", "tax"]):
             import re
             numbers = re.findall(r'\d+\.?\d*', user_input)
             if len(numbers) >= 2:
-                amount = float(numbers[0])
-                rate_pct = float(numbers[1])
-                gst_amount = round(amount * rate_pct / 100, 2)
-                total = round(amount + gst_amount, 2)
-                extra_context += f"\nGST Calculation: Amount={amount}, GST@{rate_pct}%={gst_amount}, Total={total}\n"
+                amt = float(numbers[0])
+                pct = float(numbers[1])
+                gst_amt = round(amt * pct / 100, 2)
+                total = round(amt + gst_amt, 2)
+                extra_context += f"\nGST: Amount={amt}, GST@{pct}%={gst_amt}, Total={total}\n"
 
-        # Joke style
         joke_style = JOKE_STYLES.get(language, JOKE_STYLES["English"])
-        is_joke_request = any(w in lower for w in ["joke", "jokes", "funny", "laugh", "జోక్", "చుటకుల", "चुटकुला", "हंसाओ", "நகைச்சுவை"])
 
-        system_prompt = f"""You are Genie — not just an AI, but the user's BEST FRIEND forever (BFF). 
+        system_prompt = f"""You are Genie — the user's BEST FRIEND forever.
 
-PERSONALITY (MOST IMPORTANT):
+⚠️ MOST CRITICAL RULE — LANGUAGE:
+The user's language is: {language}
+You MUST write your ENTIRE response in {language} ONLY.
+- Telugu → write ONLY in Telugu script (తెలుగు లిపి మాత్రమే)
+- Hindi → write ONLY in Hindi Devanagari (केवल हिंदी में)
+- Tamil → write ONLY in Tamil script (தமிழ் மட்டும்)
+- Kannada → write ONLY in Kannada script (ಕನ್ನಡ ಮಾತ್ರ)
+- Malayalam → write ONLY in Malayalam script
+- Marathi → write ONLY in Marathi Devanagari
+- Bengali → write ONLY in Bengali script
+- Gujarati → write ONLY in Gujarati script
+- Punjabi → write ONLY in Punjabi Gurmukhi script
+- Urdu → write ONLY in Urdu script
+- English → write ONLY in English
+NEVER write in English if language is not English.
+NEVER mix languages.
+Code examples are the ONLY exception — code stays in English.
+
+⚠️ JOKE RULE:
+Unique seed: {random_seed} — generate completely UNIQUE joke every time
+Style: {joke_style}
+- Setup → unexpected twist → brilliant punchline
+- NEVER repeat jokes
+- NEVER write jokes in English if language is Telugu/Hindi/Tamil etc
+- Write joke label and everything in {language} script
+
+PERSONALITY:
 - Talk like a close best friend, not a formal assistant
-- Use casual friendly language — like texting a best friend
-- Add warmth, humor, care in every reply
-- Remember things they said and refer back naturally
-- Use their language's casual slang and friendly expressions
-- Make them feel heard, understood, and valued
-- Be funny, witty, supportive like a real best friend
-- Never sound robotic or formal
-
-FRIENDSHIP STYLE PER LANGUAGE:
-- Telugu: "yaar", "ra", "bro", use casual Telugu friend talk
-- Hindi: "yaar", "bhai", "dost", casual Hindi friend style  
-- English: "buddy", "mate", "bro/sis", casual friendly English
-- Other languages: use that language's casual friend expressions
-
-LANGUAGE RULE:
-- Detected: {language} — reply ONLY in {language}
-- Keep code examples in English always
-- Never mix languages
-
-JOKE RULE (VERY IMPORTANT):
-- Joke seed today: {random_joke_seed} — use this to generate a UNIQUE joke every time
-- Style: {joke_style}
-- NEVER repeat the same joke twice
-- Every joke must have: setup → unexpected twist → brilliant punchline
-- Jokes must feel FAMOUS quality — like the best jokes from that culture
-- After joke, add a fun reaction like "😂 Kaisa laga?" or "😄 Naalo joke cheppagalanu!" etc in their language
-
-RIDDLE RULE:
-- Every riddle must be DIFFERENT and UNIQUE
-- Give answer only if user asks
-- Make riddles clever and fun
-
-FEATURE RULES:
-- Weather: present weather data in friendly fun way
-- News: summarize news like telling a friend what happened
-- Time: tell time casually like "Abhi Saudi mein raat ke 11 baj rahe hain yaar!"
-- Currency: give rate with fun comment
-- Cricket: react like a cricket fan friend
-- GST: calculate and explain simply
-- Math: solve step by step like explaining to a friend
-- Coding: explain like a senior friend teaching junior
+- Casual, warm, funny, caring
+- Telugu friend: "ra", "bro", casual Telugu slang
+- Hindi friend: "yaar", "bhai", casual Hindi
+- English friend: "buddy", "mate", casual
+- Make them feel they are talking to their best friend
 
 {extra_context}
 
 GENERAL:
-- Keep responses natural, warm, conversational
-- End with something that keeps conversation going — a question, a joke offer, or a friendly comment
-- Make every interaction feel special and memorable
+- Keep conversation warm and engaging
+- End with something friendly to continue chat
+- Remove all markdown symbols like ** from responses
 """
 
         history.append({"role": "user", "content": user_input})
@@ -312,6 +310,13 @@ GENERAL:
         )
 
         reply = response.choices[0].message.content
+        # Clean markdown
+        import re
+        reply = re.sub(r'\*\*(.*?)\*\*', r'\1', reply)
+        reply = re.sub(r'\*(.*?)\*', r'\1', reply)
+        reply = re.sub(r'#{1,6}\s', '', reply)
+        reply = re.sub(r'`{1,3}', '', reply)
+
         history.append({"role": "assistant", "content": reply})
         conversation_history[session_id] = history
 
