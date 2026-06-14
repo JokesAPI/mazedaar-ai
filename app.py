@@ -151,37 +151,55 @@ def get_train_info(train_number):
     """Get train schedule using irctc1.p.rapidapi.com"""
     try:
         if RAPIDAPI_KEY:
-            url = f"https://irctc1.p.rapidapi.com/api/v3/getTrainSchedule?trainNo={train_number}&ifNumber=1"
+            url = "https://irctc1.p.rapidapi.com/api/v1/liveTrainStatus"
             headers = {
-                "X-RapidAPI-Key": RAPIDAPI_KEY,
-                "X-RapidAPI-Host": "irctc1.p.rapidapi.com"
+                "x-rapidapi-key": RAPIDAPI_KEY,
+                "x-rapidapi-host": "irctc1.p.rapidapi.com"
             }
-            r = requests.get(url, headers=headers, timeout=10)
+            params = {"trainNo": train_number, "startDay": "1"}
+            r = requests.get(url, headers=headers, params=params, timeout=10)
             data = r.json()
             if data.get("status") and data.get("data"):
                 d = data["data"]
-                name = d.get("train_name", "Unknown")
+                name = d.get("trainName", train_number)
+                stations = d.get("stationList", [])
+                result = f"Train {train_number} — {name}\n\nStation List:\n"
+                for s in stations[:15]:
+                    stn = s.get("stationName", "")
+                    arr = s.get("schArrival", "--")
+                    dep = s.get("schDeparture", "--")
+                    result += f"  {stn} | Arr: {arr} | Dep: {dep}\n"
+                return result
+
+            # Try schedule endpoint
+            url2 = "https://irctc1.p.rapidapi.com/api/v3/getTrainSchedule"
+            params2 = {"trainNo": train_number}
+            r2 = requests.get(url2, headers=headers, params=params2, timeout=10)
+            data2 = r2.json()
+            if data2.get("status") and data2.get("data"):
+                d = data2["data"]
+                name = d.get("trainName", train_number)
                 stations = d.get("stationList", [])
                 result = f"Train {train_number} — {name}\n\nRoute:\n"
                 for s in stations[:15]:
                     stn = s.get("stationName", "")
-                    code = s.get("stationCode", "")
                     arr = s.get("arrivalTime", "--")
                     dep = s.get("departureTime", "--")
                     day = s.get("dayCount", "")
-                    result += f"  {stn} ({code}) | Arr: {arr} | Dep: {dep} | Day {day}\n"
+                    result += f"  {stn} | Arr: {arr} | Dep: {dep} | Day {day}\n"
                 return result
-    except: pass
+    except Exception as e:
+        print(f"Train API error: {e}")
 
     # Fallback — AI knowledge
     prompt = f"""Give the complete route and schedule of Indian train number {train_number}.
-Include: train name, major stations, arrival and departure times.
-Format it clearly station by station.
-If you don't know this train, say so honestly."""
+Include train name, all major stations with arrival and departure times.
+Format clearly station by station.
+If you don't know this specific train number, say so."""
     response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[{"role": "user", "content": prompt}],
-        max_tokens=500, temperature=0
+        max_tokens=600, temperature=0
     )
     return response.choices[0].message.content.strip()
 
@@ -190,12 +208,13 @@ def check_pnr(pnr_number):
     """Check PNR status using irctc1.p.rapidapi.com"""
     try:
         if RAPIDAPI_KEY:
-            url = f"https://irctc1.p.rapidapi.com/api/v3/getPNRStatus?pnrNumber={pnr_number}"
+            url = "https://irctc1.p.rapidapi.com/api/v3/getPNRStatus"
             headers = {
-                "X-RapidAPI-Key": RAPIDAPI_KEY,
-                "X-RapidAPI-Host": "irctc1.p.rapidapi.com"
+                "x-rapidapi-key": RAPIDAPI_KEY,
+                "x-rapidapi-host": "irctc1.p.rapidapi.com"
             }
-            r = requests.get(url, headers=headers, timeout=10)
+            params = {"pnrNumber": pnr_number}
+            r = requests.get(url, headers=headers, params=params, timeout=10)
             data = r.json()
             if data.get("status") and data.get("data"):
                 p = data["data"]
@@ -207,18 +226,21 @@ def check_pnr(pnr_number):
                 result += f"Chart: {p.get('chartPrepared','Not Prepared')}\n"
                 passengers = p.get("passengerList", [])
                 for i, pax in enumerate(passengers, 1):
-                    result += f"Passenger {i}: Booking={pax.get('bookingStatus','')} Current={pax.get('currentStatus','')}\n"
+                    booking = pax.get('bookingStatus','')
+                    current = pax.get('currentStatus','')
+                    result += f"Passenger {i}: Booked={booking} | Current={current}\n"
                 return result
-    except: pass
+    except Exception as e:
+        print(f"PNR API error: {e}")
 
-    return f"""PNR {pnr_number} — Live status unavailable.
+    return f"""PNR {pnr_number} — Live status check failed.
 
-To check PNR status:
+Check your PNR status here:
 1. SMS: PNR {pnr_number} to 139
 2. Website: indianrail.gov.in
 3. App: IRCTC Rail Connect
 4. App: NTES
-5. Call: 139"""
+5. Call: 139 (24x7)"""
 
 
 def get_weather(city):
