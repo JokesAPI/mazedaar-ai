@@ -1,6 +1,7 @@
 import os
 import requests
 import random
+import re
 from datetime import datetime
 import pytz
 from flask import Flask, request, jsonify
@@ -17,61 +18,149 @@ client = OpenAI(api_key=OPENAI_API_KEY)
 
 conversation_history = {}
 
-JOKE_STYLES = {
-    "Telugu": "Jandhyala style Telugu comedy — sharp wit, family drama, unexpected punchlines. Write ENTIRELY in Telugu script.",
-    "Hindi": "Raju Srivastava and Jaspal Bhatti style — social comedy, common man humor. Write ENTIRELY in Hindi Devanagari script.",
-    "Tamil": "Vadivelu and Vivek style — exaggerated reactions, wordplay. Write ENTIRELY in Tamil script.",
-    "Kannada": "Ramesh Aravind style — smart wordplay, family situations. Write ENTIRELY in Kannada script.",
-    "Malayalam": "Innocent and Sreenivasan style — subtle intelligent humor. Write ENTIRELY in Malayalam script.",
-    "Marathi": "Pu La Deshpande style — witty observations. Write ENTIRELY in Marathi (Devanagari script).",
-    "Bengali": "Classic Bangla humor — clever wordplay. Write ENTIRELY in Bengali script.",
-    "Gujarati": "Classic Gujarati humor. Write ENTIRELY in Gujarati script.",
-    "Punjabi": "Classic Punjabi humor — energetic fun. Write ENTIRELY in Punjabi Gurmukhi script.",
-    "Urdu": "Classic Urdu wit — poetic humor. Write ENTIRELY in Urdu script.",
-    "English": "Classic English dry wit — unexpected punchlines.",
+JOKE_FORMATS = {
+    "Telugu": """
+JOKE RULES FOR TELUGU:
+- Write ONLY in simple everyday Telugu script
+- Use common names: రాము, సోము, మాస్టర్, డాక్టర్, భార్య, భర్త
+- Maximum 5-6 lines only
+- Format: short setup → 2-3 dialogues → CLEAR funny punchline
+- Last line must make customer laugh immediately
+- Use simple Telugu words everyone understands
+- NO confusing story, NO long explanation
+
+EXAMPLE FORMAT:
+మాస్టర్: రాముడూ, నీ నాన్న ఏం చేస్తారు?
+రాముడు: సార్, డాక్టర్.
+మాస్టర్: అయితే నువ్వు పెద్దయ్యాక ఏమవుతావు?
+రాముడు: సార్, పేషెంట్! 😄
+""",
+    "Hindi": """
+JOKE RULES FOR HINDI:
+- Write ONLY in simple Hindi Devanagari script
+- Use common names: राम, मोहन, मास्टर जी, डॉक्टर, पत्नी, पति
+- Maximum 5-6 lines only
+- Format: short setup → 2-3 dialogues → CLEAR funny punchline
+- Last line must make customer laugh immediately
+- Simple Hindi words everyone understands
+- NO confusing story
+
+EXAMPLE FORMAT:
+पत्नी: सुनो जी, आज खाना नहीं बनाऊंगी।
+पति: क्यों?
+पत्नी: डाइट पर हूं।
+पति: तो मैं भी डाइट पर हूं... होटल जाते हैं! 😄
+""",
+    "Tamil": """
+JOKE RULES FOR TAMIL:
+- Write ONLY in simple Tamil script
+- Use common names: ராமு, மோகன், மாஸ்டர், டாக்டர், மனைவி, கணவன்
+- Maximum 5-6 lines only
+- Format: short setup → 2-3 dialogues → CLEAR funny punchline
+- Simple Tamil words everyone understands
+- NO confusing story
+
+EXAMPLE FORMAT:
+மாஸ்டர்: ராமு, உன் அப்பா என்ன பண்றாங்க?
+ராமு: சார், டாக்டர்.
+மாஸ்டர்: நீ என்னாவே?
+ராமு: சார், பேஷன்ட்! 😄
+""",
+    "Kannada": """
+JOKE RULES FOR KANNADA:
+- Write ONLY in simple Kannada script
+- Use common names: ರಾಮು, ಸೋಮು, ಮಾಸ್ಟರ್, ಡಾಕ್ಟರ್
+- Maximum 5-6 lines only
+- Clear funny punchline at the end
+- Simple Kannada words everyone understands
+""",
+    "Malayalam": """
+JOKE RULES FOR MALAYALAM:
+- Write ONLY in simple Malayalam script
+- Use common names: രാമു, മോഹൻ, മാഷ്, ഡോക്ടർ
+- Maximum 5-6 lines only
+- Clear funny punchline at the end
+- Simple Malayalam words everyone understands
+""",
+    "Marathi": """
+JOKE RULES FOR MARATHI:
+- Write ONLY in simple Marathi Devanagari script
+- Use common names: राम, मोहन, मास्तर, डॉक्टर
+- Maximum 5-6 lines only
+- Clear funny punchline at the end
+- Simple Marathi words everyone understands
+""",
+    "Bengali": """
+JOKE RULES FOR BENGALI:
+- Write ONLY in simple Bengali script
+- Use common names: রাম, মোহন, মাস্টার, ডাক্তার
+- Maximum 5-6 lines only
+- Clear funny punchline at the end
+""",
+    "Gujarati": """
+JOKE RULES FOR GUJARATI:
+- Write ONLY in simple Gujarati script
+- Maximum 5-6 lines only
+- Clear funny punchline at the end
+""",
+    "Punjabi": """
+JOKE RULES FOR PUNJABI:
+- Write ONLY in simple Punjabi Gurmukhi script
+- Maximum 5-6 lines only
+- Clear funny punchline at the end
+""",
+    "Urdu": """
+JOKE RULES FOR URDU:
+- Write ONLY in simple Urdu script
+- Maximum 5-6 lines only
+- Clear funny punchline at the end
+""",
+    "English": """
+JOKE RULES FOR ENGLISH:
+- Short and punchy — max 4-5 lines
+- Clear setup and unexpected punchline
+- Everyone must understand immediately
+
+EXAMPLE:
+Doctor: You need to stop talking to yourself.
+Patient: Why?
+Doctor: Because it's annoying all my other patients! 😄
+""",
 }
 
-# Language detection — checks for language name keywords first
 def detect_language(text):
     text_lower = text.lower()
 
-    # Check explicit language name mentions FIRST
+    # Check explicit language name first
     explicit = {
-        "telugu": "Telugu",
-        "hindi": "Hindi",
-        "tamil": "Tamil",
-        "kannada": "Kannada",
-        "malayalam": "Malayalam",
-        "marathi": "Marathi",
-        "gujarati": "Gujarati",
-        "bengali": "Bengali",
-        "punjabi": "Punjabi",
-        "urdu": "Urdu",
-        "english": "English",
+        "telugu": "Telugu", "hindi": "Hindi", "tamil": "Tamil",
+        "kannada": "Kannada", "malayalam": "Malayalam", "marathi": "Marathi",
+        "gujarati": "Gujarati", "bengali": "Bengali", "punjabi": "Punjabi",
+        "urdu": "Urdu", "english": "English",
     }
     for keyword, lang in explicit.items():
         if keyword in text_lower:
             return lang
 
-    # Check native script keywords
+    # Native script keywords
     lang_keywords = {
-        "Hindi":     ["हिंदी", "हिन्दी", "मजेदार", "बताओ", "क्या", "कैसे", "यार"],
-        "Telugu":    ["తెలుగు", "చెప్పు", "జోక్", "ఏమిటి", "నీకు"],
-        "Tamil":     ["தமிழ்", "சொல்லு", "என்ன", "எப்படி"],
-        "Kannada":   ["ಕನ್ನಡ", "ಹೇಳು", "ಏನು", "ಹೇಗೆ"],
-        "Malayalam": ["മലയാളം", "പറയൂ", "എന്ത്", "എങ്ങനെ"],
-        "Marathi":   ["मराठी", "सांग", "काय", "कसे"],
-        "Gujarati":  ["ગુજરાતી", "કહો", "શું"],
-        "Bengali":   ["বাংলা", "বলো", "কী"],
-        "Punjabi":   ["ਪੰਜਾਬੀ", "ਦੱਸੋ", "ਕੀ"],
-        "Urdu":      ["اردو", "بتاؤ", "کیا"],
+        "Hindi":     ["हिंदी", "मजेदार", "बताओ", "क्या", "कैसे", "यार"],
+        "Telugu":    ["తెలుగు", "చెప్పు", "జోక్", "ఏమిటి"],
+        "Tamil":     ["தமிழ்", "சொல்லு", "என்ன"],
+        "Kannada":   ["ಕನ್ನಡ", "ಹೇಳು", "ಏನು"],
+        "Malayalam": ["മലയാളം", "പറയൂ", "എന്ത്"],
+        "Marathi":   ["मराठी", "सांग", "काय"],
+        "Gujarati":  ["ગુજરાતી", "કહો"],
+        "Bengali":   ["বাংলা", "বলো"],
+        "Punjabi":   ["ਪੰਜਾਬੀ", "ਦੱਸੋ"],
+        "Urdu":      ["اردو", "بتاؤ"],
     }
     for lang, keywords in lang_keywords.items():
         for word in keywords:
             if word in text:
                 return lang
 
-    # Check Unicode script ranges
+    # Unicode ranges
     unicode_ranges = {
         "Tamil":     ('\u0B80', '\u0BFF'),
         "Telugu":    ('\u0C00', '\u0C7F'),
@@ -194,8 +283,8 @@ def chat():
             words = user_input.split()
             city = "Hyderabad"
             for i, w in enumerate(words):
-                if w.lower() in ["weather", "in", "of", "at"] and i + 1 < len(words):
-                    city = words[i + 1]
+                if w.lower() in ["weather", "in", "of", "at"] and i+1 < len(words):
+                    city = words[i+1]
             weather = get_weather(city)
             if weather:
                 extra_context += f"\nWeather data: {weather}\n"
@@ -222,12 +311,10 @@ def chat():
                 extra_context += f"\nIST: {ist}\n"
 
         # Currency
-        if any(w in lower for w in ["usd", "inr", "sar", "aed", "gbp", "eur", "dollar", "rupee", "riyal", "convert"]):
-            import re
+        if any(w in lower for w in ["usd","inr","sar","aed","gbp","eur","dollar","rupee","riyal","convert","exchange"]):
             numbers = re.findall(r'\d+\.?\d*', user_input)
             amount = numbers[0] if numbers else "1"
-            pairs = [("usd","inr"),("sar","inr"),("aed","inr"),("gbp","inr"),("eur","inr")]
-            for f, t in pairs:
+            for f, t in [("usd","inr"),("sar","inr"),("aed","inr"),("gbp","inr"),("eur","inr")]:
                 if f in lower:
                     rate = get_exchange_rate(f, t, amount)
                     if rate:
@@ -235,14 +322,13 @@ def chat():
                     break
 
         # Cricket
-        if any(w in lower for w in ["cricket", "ipl", "score", "match"]):
+        if any(w in lower for w in ["cricket","ipl","score","match"]):
             score = get_cricket_score()
             if score:
                 extra_context += f"\nLive Cricket:\n{score}\n"
 
         # GST
-        if any(w in lower for w in ["gst", "tax"]):
-            import re
+        if any(w in lower for w in ["gst","tax"]):
             numbers = re.findall(r'\d+\.?\d*', user_input)
             if len(numbers) >= 2:
                 amt = float(numbers[0])
@@ -251,50 +337,52 @@ def chat():
                 total = round(amt + gst_amt, 2)
                 extra_context += f"\nGST: Amount={amt}, GST@{pct}%={gst_amt}, Total={total}\n"
 
-        joke_style = JOKE_STYLES.get(language, JOKE_STYLES["English"])
+        joke_format = JOKE_FORMATS.get(language, JOKE_FORMATS["English"])
+        is_joke = any(w in lower for w in ["joke","jokes","funny","laugh","జోక్","चुटकुला","நகைச்சுவை","ಜೋಕ್","തമാശ"])
 
         system_prompt = f"""You are Genie — the user's BEST FRIEND forever.
 
-⚠️ MOST CRITICAL RULE — LANGUAGE:
-The user's language is: {language}
-You MUST write your ENTIRE response in {language} ONLY.
-- Telugu → write ONLY in Telugu script (తెలుగు లిపి మాత్రమే)
-- Hindi → write ONLY in Hindi Devanagari (केवल हिंदी में)
-- Tamil → write ONLY in Tamil script (தமிழ் மட்டும்)
-- Kannada → write ONLY in Kannada script (ಕನ್ನಡ ಮಾತ್ರ)
-- Malayalam → write ONLY in Malayalam script
-- Marathi → write ONLY in Marathi Devanagari
-- Bengali → write ONLY in Bengali script
-- Gujarati → write ONLY in Gujarati script
-- Punjabi → write ONLY in Punjabi Gurmukhi script
-- Urdu → write ONLY in Urdu script
-- English → write ONLY in English
-NEVER write in English if language is not English.
-NEVER mix languages.
-Code examples are the ONLY exception — code stays in English.
+LANGUAGE LAW — NEVER BREAK THIS:
+Detected language: {language}
+You MUST write ENTIRE response in {language} ONLY.
+Telugu → తెలుగు లిపి మాత్రమే
+Hindi → केवल हिंदी देवनागरी
+Tamil → தமிழ் மட்டும்
+Kannada → ಕನ್ನಡ ಮಾತ್ರ
+Malayalam → മലയാളം മാത്രം
+Marathi → फक्त मराठी
+Bengali → শুধু বাংলা
+Gujarati → માત્ર ગુજરાતી
+Punjabi → ਸਿਰਫ਼ ਪੰਜਾਬੀ
+Urdu → صرف اردو
+English → English only
+NEVER use English words in non-English responses except for code.
 
-⚠️ JOKE RULE:
-Unique seed: {random_seed} — generate completely UNIQUE joke every time
-Style: {joke_style}
-- Setup → unexpected twist → brilliant punchline
-- NEVER repeat jokes
-- NEVER write jokes in English if language is Telugu/Hindi/Tamil etc
-- Write joke label and everything in {language} script
+{"JOKE INSTRUCTIONS:" + joke_format if is_joke else ""}
+
+JOKE QUALITY CHECKLIST (only for jokes):
+1. Is the setup clear? (who, what situation)
+2. Are dialogues short and easy to understand?
+3. Does the punchline make sense and is funny?
+4. Will a 12-year-old understand it instantly?
+5. Is it in {language} script completely?
+If any answer is NO — rewrite the joke until all are YES.
 
 PERSONALITY:
-- Talk like a close best friend, not a formal assistant
-- Casual, warm, funny, caring
-- Telugu friend: "ra", "bro", casual Telugu slang
-- Hindi friend: "yaar", "bhai", casual Hindi
-- English friend: "buddy", "mate", casual
-- Make them feel they are talking to their best friend
+- Talk like closest best friend
+- Warm, funny, casual
+- Telugu: use "రా", "బ్రో", casual Telugu
+- Hindi: use "यार", "भाई", casual Hindi
+- English: use "buddy", "mate", casual
+- Never formal or robotic
 
 {extra_context}
 
-GENERAL:
-- Keep conversation warm and engaging
-- End with something friendly to continue chat
-- Remove all markdown symbols like ** from responses
+RESPONSE RULES:
+- No markdown symbols like ** or ## or ``` in response
+- Each sentence on new line for easy reading
+- End warmly to continue conversation
+- Unique seed {random_seed} — never repeat same joke
 """
 
         history.append({"role": "user", "content": user_input})
@@ -306,16 +394,17 @@ GENERAL:
             model="gpt-4o-mini",
             messages=[{"role": "system", "content": system_prompt}] + history,
             max_tokens=1024,
-            temperature=0.95
+            temperature=0.9
         )
 
         reply = response.choices[0].message.content
-        # Clean markdown
-        import re
+
+        # Clean all markdown
         reply = re.sub(r'\*\*(.*?)\*\*', r'\1', reply)
         reply = re.sub(r'\*(.*?)\*', r'\1', reply)
-        reply = re.sub(r'#{1,6}\s', '', reply)
-        reply = re.sub(r'`{1,3}', '', reply)
+        reply = re.sub(r'#{1,6}\s?', '', reply)
+        reply = re.sub(r'`{1,3}[a-z]*\n?', '', reply)
+        reply = reply.strip()
 
         history.append({"role": "assistant", "content": reply})
         conversation_history[session_id] = history
