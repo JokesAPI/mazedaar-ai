@@ -148,67 +148,66 @@ Write ONLY the joke, nothing else."""
 
 
 def get_train_info(train_number):
-    """Get train route using RapidAPI"""
+    """Get train schedule using irctc1.p.rapidapi.com"""
     try:
         if RAPIDAPI_KEY:
-            url = f"https://indian-railway-irctc.p.rapidapi.com/api/trains-search/train-schedule?trainNo={train_number}"
+            url = f"https://irctc1.p.rapidapi.com/api/v3/getTrainSchedule?trainNo={train_number}&ifNumber=1"
             headers = {
                 "X-RapidAPI-Key": RAPIDAPI_KEY,
-                "X-RapidAPI-Host": "indian-railway-irctc.p.rapidapi.com"
+                "X-RapidAPI-Host": "irctc1.p.rapidapi.com"
             }
-            r = requests.get(url, headers=headers, timeout=8)
+            r = requests.get(url, headers=headers, timeout=10)
             data = r.json()
-            if data.get("data"):
+            if data.get("status") and data.get("data"):
                 d = data["data"]
                 name = d.get("train_name", "Unknown")
-                stations = d.get("stations", [])
+                stations = d.get("stationList", [])
                 result = f"Train {train_number} — {name}\n\nRoute:\n"
-                for s in stations[:12]:
-                    stn = s.get("station_name","")
-                    arr = s.get("arr_time","--")
-                    dep = s.get("dep_time","--")
-                    day = s.get("day","")
-                    result += f"  {stn} | Arr: {arr} | Dep: {dep} | Day {day}\n"
+                for s in stations[:15]:
+                    stn = s.get("stationName", "")
+                    code = s.get("stationCode", "")
+                    arr = s.get("arrivalTime", "--")
+                    dep = s.get("departureTime", "--")
+                    day = s.get("dayCount", "")
+                    result += f"  {stn} ({code}) | Arr: {arr} | Dep: {dep} | Day {day}\n"
                 return result
     except: pass
 
-    # Fallback — use AI knowledge (trained on Indian railways data)
+    # Fallback — AI knowledge
     prompt = f"""Give the complete route and schedule of Indian train number {train_number}.
 Include: train name, major stations, arrival and departure times.
 Format it clearly station by station.
 If you don't know this train, say so honestly."""
-
     response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[{"role": "user", "content": prompt}],
-        max_tokens=500,
-        temperature=0
+        max_tokens=500, temperature=0
     )
     return response.choices[0].message.content.strip()
 
 
 def check_pnr(pnr_number):
-    """Check PNR status using RapidAPI"""
+    """Check PNR status using irctc1.p.rapidapi.com"""
     try:
         if RAPIDAPI_KEY:
-            url = f"https://indian-railway-irctc.p.rapidapi.com/api/pnr-status/pnr/{pnr_number}"
+            url = f"https://irctc1.p.rapidapi.com/api/v3/getPNRStatus?pnrNumber={pnr_number}"
             headers = {
                 "X-RapidAPI-Key": RAPIDAPI_KEY,
-                "X-RapidAPI-Host": "indian-railway-irctc.p.rapidapi.com"
+                "X-RapidAPI-Host": "irctc1.p.rapidapi.com"
             }
-            r = requests.get(url, headers=headers, timeout=8)
+            r = requests.get(url, headers=headers, timeout=10)
             data = r.json()
-            if data.get("data"):
+            if data.get("status") and data.get("data"):
                 p = data["data"]
                 result = f"PNR: {pnr_number}\n"
-                result += f"Train: {p.get('train_no','')} — {p.get('train_name','')}\n"
-                result += f"Date: {p.get('doj','')}\n"
-                result += f"From: {p.get('from_station_name','')} → To: {p.get('to_station_name','')}\n"
+                result += f"Train: {p.get('trainNumber','')} — {p.get('trainName','')}\n"
+                result += f"Date: {p.get('dateOfJourney','')}\n"
+                result += f"From: {p.get('sourceStation','')} → To: {p.get('destinationStation','')}\n"
                 result += f"Class: {p.get('class','')}\n"
-                result += f"Booking Status: {p.get('booking_status','')}\n"
-                passengers = p.get("passengers",[])
+                result += f"Chart: {p.get('chartPrepared','Not Prepared')}\n"
+                passengers = p.get("passengerList", [])
                 for i, pax in enumerate(passengers, 1):
-                    result += f"Passenger {i}: {pax.get('current_status','Unknown')}\n"
+                    result += f"Passenger {i}: Booking={pax.get('bookingStatus','')} Current={pax.get('currentStatus','')}\n"
                 return result
     except: pass
 
@@ -218,7 +217,7 @@ To check PNR status:
 1. SMS: PNR {pnr_number} to 139
 2. Website: indianrail.gov.in
 3. App: IRCTC Rail Connect
-4. App: NTES (National Train Enquiry System)
+4. App: NTES
 5. Call: 139"""
 
 
