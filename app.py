@@ -161,32 +161,29 @@ def get_train_info(train_number):
             data = r.json()
             if data.get("status") and data.get("data"):
                 d = data["data"]
-                name = d.get("trainName", train_number)
-                stations = d.get("stationList", [])
-                result = f"Train {train_number} — {name}\n\nStation List:\n"
-                for s in stations[:15]:
-                    stn = s.get("stationName", "")
-                    arr = s.get("schArrival", "--")
-                    dep = s.get("schDeparture", "--")
-                    result += f"  {stn} | Arr: {arr} | Dep: {dep}\n"
-                return result
+                name = d.get("train_name", train_number)
+                source = d.get("source_stn_name", "")
+                dest = d.get("dest_stn_name", "")
+                run_days = d.get("run_days", "")
+                title = d.get("title", "")
 
-            # Try schedule endpoint
-            url2 = "https://irctc1.p.rapidapi.com/api/v3/getTrainSchedule"
-            params2 = {"trainNo": train_number}
-            r2 = requests.get(url2, headers=headers, params=params2, timeout=10)
-            data2 = r2.json()
-            if data2.get("status") and data2.get("data"):
-                d = data2["data"]
-                name = d.get("trainName", train_number)
-                stations = d.get("stationList", [])
-                result = f"Train {train_number} — {name}\n\nRoute:\n"
-                for s in stations[:15]:
-                    stn = s.get("stationName", "")
-                    arr = s.get("arrivalTime", "--")
-                    dep = s.get("departureTime", "--")
-                    day = s.get("dayCount", "")
-                    result += f"  {stn} | Arr: {arr} | Dep: {dep} | Day {day}\n"
+                result = f"Train {train_number} — {name}\n"
+                result += f"Route: {source} → {dest}\n"
+                result += f"Runs on: {run_days}\n"
+                result += f"Status: {title}\n\n"
+                result += "Major Stops:\n"
+
+                # Get stations from previous_stations list
+                stations = d.get("previous_stations", [])
+                for s in stations:
+                    stn = s.get("station_name", "")
+                    sta = s.get("sta", "--")
+                    std = s.get("std", "--")
+                    platform = s.get("platform_number", "")
+                    result += f"  {stn} | Arr: {sta} | Dep: {std} | Platform: {platform}\n"
+
+                # Add destination
+                result += f"  {dest} (Destination)\n"
                 return result
     except Exception as e:
         print(f"Train API error: {e}")
@@ -194,8 +191,7 @@ def get_train_info(train_number):
     # Fallback — AI knowledge
     prompt = f"""Give the complete route and schedule of Indian train number {train_number}.
 Include train name, all major stations with arrival and departure times.
-Format clearly station by station.
-If you don't know this specific train number, say so."""
+Format clearly station by station."""
     response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[{"role": "user", "content": prompt}],
