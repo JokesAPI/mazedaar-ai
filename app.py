@@ -61,22 +61,75 @@ Write ONLY the quote, nothing else."""
     return response.choices[0].message.content.strip()
 
 
-def get_nasa_apod():
-    """Get NASA Astronomy Picture of the Day"""
+def get_space_fact(session_id="default"):
+    """Get unique space/astronomy fact every time"""
+    used_key = f"{session_id}_space"
+    used = used_jokes_store.get(used_key, [])
+
+    topics = [
+        "black holes and their extreme gravity",
+        "neutron stars and pulsars",
+        "the Big Bang and origin of universe",
+        "dark matter and dark energy mystery",
+        "exoplanets and possibility of alien life",
+        "supernovas and stellar explosions",
+        "the James Webb Space Telescope discoveries",
+        "Mars exploration and Perseverance rover",
+        "Jupiter's Great Red Spot storm",
+        "Saturn's rings composition",
+        "Voyager 1 in interstellar space",
+        "the Milky Way galaxy structure",
+        "time dilation near black holes",
+        "asteroid belt and meteorites",
+        "solar flares and their Earth impact",
+        "moon formation theory",
+        "water ice on Mars poles",
+        "fastest spinning pulsars",
+        "NASA Artemis moon mission",
+        "SpaceX Starship developments 2025-2026",
+    ]
+
+    available = [t for t in topics if t not in used[-8:]]
+    if not available:
+        available = topics
+        used_jokes_store[used_key] = []
+
+    topic = random.choice(available)
+    used_jokes_store[used_key] = used + [topic]
+
+    # Try NASA APOD for real data
     try:
         key = NASA_API_KEY if NASA_API_KEY else "DEMO_KEY"
-        url = f"https://api.nasa.gov/planetary/apod?api_key={key}"
+        # Get random date for variety
+        import random as rnd
+        year = rnd.choice([2023, 2024, 2025])
+        month = rnd.randint(1, 12)
+        day = rnd.randint(1, 28)
+        date_str = f"{year}-{month:02d}-{day:02d}"
+        url = f"https://api.nasa.gov/planetary/apod?api_key={key}&date={date_str}"
         r = requests.get(url, timeout=8)
         data = r.json()
-        if data.get("title"):
-            result = f"NASA News:\n"
-            result += f"Title: {data.get('title','')}\n"
+        if data.get("title") and data.get("explanation"):
+            result = f"Space & Astronomy — {data.get('title','')}\n"
             result += f"Date: {data.get('date','')}\n"
-            result += f"Description: {data.get('explanation','')[:300]}...\n"
-            result += f"Image: {data.get('url','')}\n"
+            result += f"{data.get('explanation','')[:400]}...\n"
+            if data.get("url"):
+                result += f"View: {data.get('url','')}\n"
             return result
     except: pass
-    return None
+
+    # Fallback — AI generated space fact
+    prompt = f"""Share ONE amazing, mind-blowing fact about: {topic}
+    Make it WOW factor — something most people don't know.
+    Include specific numbers, distances, or comparisons to make it fascinating.
+    Keep it 3-4 sentences only.
+    End with one thought-provoking question."""
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role":"user","content":prompt}],
+        max_tokens=250, temperature=0.9
+    )
+    return f"Space & Astronomy — {topic.title()}:\n{response.choices[0].message.content.strip()}"
 
 
 def get_nasa_mars():
@@ -516,15 +569,12 @@ Joke:
                 if quote:
                     extra_context += f"\nQuote of the Day ({category}):\n{quote}\n"
 
-            # NASA Space & Astronomy
-            nasa_words = ["nasa","space","astronomy","planet","mars","moon","star","galaxy","universe","cosmos","అంతరిక్షం","अंतरिक्ष"]
+            # Space & Astronomy
+            nasa_words = ["nasa","space","astronomy","planet","mars","moon","star","galaxy","universe","cosmos","అంతరిక్షం","अंतरिक्ष","space","rocket"]
             if any(w in lower for w in nasa_words):
-                if any(w in lower for w in ["mars","rover","curiosity"]):
-                    nasa_data = get_nasa_mars()
-                else:
-                    nasa_data = get_nasa_apod()
-                if nasa_data:
-                    extra_context += f"\n{nasa_data}\n"
+                space_data = get_space_fact(session_id)
+                if space_data:
+                    extra_context += f"\n{space_data}\n"
 
             # Train & PNR — redirect to official sources
             if any(w in lower for w in ["train","pnr","railway","irctc","రైలు","ट्रेन","ரெயில்"]):
