@@ -462,44 +462,7 @@ def chat():
         if session_id not in conversation_history:
             conversation_history[session_id] = []
         history = conversation_history[session_id]
-        # RIDDLE HANDLING
-        riddle_words = ["riddle","riddles","puzzle","brain","బుర్రకు","पहेली","புதிர்"]
-        is_riddle = any(w in lower for w in riddle_words)
-
-        if is_riddle and not is_joke:
-            used_key = f"{session_id}_riddles"
-            used = used_jokes_store.get(used_key, [])
-            riddle_topics = [
-                "animals","time","shadow","mirror","silence","fire","wind",
-                "rain","river","mountain","book","keyboard","clock","candle",
-                "ice","music","dream","memory","eye","tooth"
-            ]
-            available = [t for t in riddle_topics if t not in used[-8:]]
-            if not available:
-                available = riddle_topics
-                used_jokes_store[used_key] = []
-            topic = random.choice(available)
-            used_jokes_store[used_key] = used + [topic]
-
-            seed = random.randint(1, 99999)
-            prompt = f"""Create ONE unique clever riddle about the theme: {topic}
-Seed: {seed}
-Language: {language} — write riddle ONLY in {language}
-Format:
-Line 1-3: The riddle clues
-Last line: Answer: [answer]
-Make it clever but solvable. Never repeat common riddles."""
-            response = client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[{"role":"user","content":prompt}],
-                max_tokens=200, temperature=1.0
-            )
-            reply = response.choices[0].message.content.strip()
-            reply = re.sub(r'\*\*(.*?)\*\*', r'\1', reply)
-            reply = re.sub(r'#{1,6}\s?', '', reply)
-            history.append({"role":"assistant","content":reply})
-            conversation_history[session_id] = history
-            return jsonify({"response": reply, "language_detected": language})
+       
         # JOKE HANDLING
         joke_words = ["joke","jokes","funny","laugh","జోక్","హాస్యం","चुटकुला","हंसाओ","நகைச்சுவை","ಜೋಕ್","തമാശ","জোকস","ਜੋਕ","مذاق"]
         is_joke = any(w in lower for w in joke_words)
