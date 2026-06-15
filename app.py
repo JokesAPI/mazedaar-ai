@@ -69,7 +69,7 @@ def get_nasa_apod():
         r = requests.get(url, timeout=8)
         data = r.json()
         if data.get("title"):
-            result = f"NASA Picture of the Day:\n"
+            result = f"NASA News:\n"
             result += f"Title: {data.get('title','')}\n"
             result += f"Date: {data.get('date','')}\n"
             result += f"Description: {data.get('explanation','')[:300]}...\n"
