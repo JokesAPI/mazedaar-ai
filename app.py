@@ -15,13 +15,89 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 NEWS_API_KEY = os.getenv("NEWS_API_KEY")
 WEATHER_API_KEY = os.getenv("WEATHER_API_KEY")
 CRICAPI_KEY = os.getenv("CRICAPI_KEY")
-RAPIDAPI_KEY = os.getenv("RAPIDAPI_KEY")  # get free from rapidapi.com
+RAPIDAPI_KEY = os.getenv("RAPIDAPI_KEY")
+NASA_API_KEY = os.getenv("NASA_API_KEY")  # get free from api.nasa.gov
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 conversation_history = {}
-
-# Track used AI jokes per session to avoid repeats
 used_jokes_store = {}
+used_quotes_store = {}  # Track used quotes per session
+
+
+def get_quote(language="English", session_id="default", category="motivational"):
+    """Get fresh unique quote - never repeats"""
+    try:
+        # Try Quotable API (free, no key needed)
+        tags = "inspirational|motivational|success|life|wisdom"
+        url = f"https://api.quotable.io/quotes/random?tags={tags}&limit=5"
+        r = requests.get(url, timeout=5)
+        data = r.json()
+        if data and isinstance(data, list) and len(data) > 0:
+            used_key = f"{session_id}_quotes"
+            used = used_quotes_store.get(used_key, [])
+            # Pick quote not used before
+            for q in data:
+                quote_id = q.get("_id","")
+                if quote_id not in used:
+                    used.append(quote_id)
+                    used_quotes_store[used_key] = used[-20:]  # keep last 20
+                    return f'"{q.get("content","")}" — {q.get("author","")}'
+            # If all used, just pick first
+            q = data[0]
+            return f'"{q.get("content","")}" — {q.get("author","")}'
+    except: pass
+
+    # Fallback — AI generated quote
+    prompt = f"""Generate ONE unique {category} quote in {language}.
+Format: "Quote text" — Author Name
+Make it genuinely inspiring and meaningful.
+Different from common overused quotes.
+Write ONLY the quote, nothing else."""
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role":"user","content":prompt}],
+        max_tokens=150, temperature=1.0
+    )
+    return response.choices[0].message.content.strip()
+
+
+def get_nasa_apod():
+    """Get NASA Astronomy Picture of the Day"""
+    try:
+        key = NASA_API_KEY if NASA_API_KEY else "DEMO_KEY"
+        url = f"https://api.nasa.gov/planetary/apod?api_key={key}"
+        r = requests.get(url, timeout=8)
+        data = r.json()
+        if data.get("title"):
+            result = f"NASA Picture of the Day:\n"
+            result += f"Title: {data.get('title','')}\n"
+            result += f"Date: {data.get('date','')}\n"
+            result += f"Description: {data.get('explanation','')[:300]}...\n"
+            result += f"Image: {data.get('url','')}\n"
+            return result
+    except: pass
+    return None
+
+
+def get_nasa_mars():
+    """Get NASA Mars Rover photos info"""
+    try:
+        key = NASA_API_KEY if NASA_API_KEY else "DEMO_KEY"
+        url = f"https://api.nasa.gov/mars-photos/api/v1/rovers/curiosity/latest_photos?api_key={key}"
+        r = requests.get(url, timeout=8)
+        data = r.json()
+        if data.get("latest_photos") and len(data["latest_photos"]) > 0:
+            photo = data["latest_photos"][0]
+            rover = photo.get("rover",{})
+            result = f"NASA Mars Rover — Curiosity:\n"
+            result += f"Latest Photo Date: {photo.get('earth_date','')}\n"
+            result += f"Camera: {photo.get('camera',{}).get('full_name','')}\n"
+            result += f"Rover Status: {rover.get('status','')}\n"
+            result += f"Total Photos Taken: {rover.get('total_photos',0)}\n"
+            result += f"Photo URL: {photo.get('img_src','')}\n"
+            return result
+    except: pass
+    return None
 
 def detect_language(text):
     text_lower = text.lower()
@@ -428,18 +504,54 @@ Joke:
                     gst_amt = round(amt * pct / 100, 2)
                     extra_context += f"\nGST: Amount=Rs.{amt}, GST@{pct}%=Rs.{gst_amt}, Total=Rs.{round(amt+gst_amt,2)}\n"
 
-            # Train & PNR
+            # Quote of the Day
+            quote_words = ["quote","quotes","motivation","motivational","inspire","inspiration","thought","wisdom","జ్ఞానం","प्रेरणा","உந்துதல்"]
+            if any(w in lower for w in quote_words):
+                category = "motivational"
+                for word in ["success","life","wisdom","happiness","leadership","love","friendship"]:
+                    if word in lower:
+                        category = word
+                        break
+                quote = get_quote(language, session_id, category)
+                if quote:
+                    extra_context += f"\nQuote of the Day ({category}):\n{quote}\n"
+
+            # NASA Space & Astronomy
+            nasa_words = ["nasa","space","astronomy","planet","mars","moon","star","galaxy","universe","cosmos","అంతరిక్షం","अंतरिक्ष"]
+            if any(w in lower for w in nasa_words):
+                if any(w in lower for w in ["mars","rover","curiosity"]):
+                    nasa_data = get_nasa_mars()
+                else:
+                    nasa_data = get_nasa_apod()
+                if nasa_data:
+                    extra_context += f"\n{nasa_data}\n"
+
+            # Train & PNR — redirect to official sources
             if any(w in lower for w in ["train","pnr","railway","irctc","రైలు","ट्रेन","ரெயில்"]):
                 pnr_match = re.search(r'\b\d{10}\b', user_input)
                 train_match = re.search(r'\b\d{4,5}\b', user_input)
                 if pnr_match:
-                    pnr_info = check_pnr(pnr_match.group())
-                    extra_context += f"\nPNR Status:\n{pnr_info}\n"
+                    pnr = pnr_match.group()
+                    extra_context += f"""
+PNR {pnr} — Guide user to check via these official methods:
+1. SMS: PNR {pnr} to 139 (free, instant)
+2. Website: irctc.co.in
+3. App: NTES (National Train Enquiry System)
+4. App: Where is my Train
+5. Call: 139 (24x7 free helpline)
+"""
                 elif train_match:
-                    train_info = get_train_info(train_match.group())
-                    extra_context += f"\nTrain Info:\n{train_info}\n"
+                    train_num = train_match.group()
+                    extra_context += f"""
+Train {train_num} — Guide user and share any knowledge about this train:
+Also suggest:
+1. ntes.indianrail.gov.in for live status
+2. Where is my Train app
+3. RailYatri app
+4. Call 139 for info
+"""
                 else:
-                    extra_context += "\nPlease provide train number (4-5 digits) or PNR number (10 digits).\n"
+                    extra_context += "\nFor train info provide train number (4-5 digits). For PNR provide 10-digit PNR number.\n"
 
             system_prompt = f"""You are Genie — a warm, helpful, friendly AI assistant.
 
@@ -487,6 +599,22 @@ End response warmly.
 
     except Exception as e:
         return jsonify({"error": f"Server error: {str(e)}"}), 500
+
+
+@app.route("/debug-pnr/<pnr_number>", methods=["GET"])
+def debug_pnr(pnr_number):
+    try:
+        if not RAPIDAPI_KEY:
+            return jsonify({"error": "RAPIDAPI_KEY not set"})
+        headers = {
+            "x-rapidapi-key": RAPIDAPI_KEY,
+            "x-rapidapi-host": "irctc1.p.rapidapi.com"
+        }
+        url = "https://irctc1.p.rapidapi.com/api/v3/getPNRStatus"
+        r = requests.get(url, headers=headers, params={"pnrNumber": pnr_number}, timeout=10)
+        return jsonify({"status": r.status_code, "response": r.json()})
+    except Exception as e:
+        return jsonify({"error": str(e)})
 
 
 @app.route("/debug-train/<train_number>", methods=["GET"])
