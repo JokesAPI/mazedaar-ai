@@ -471,6 +471,7 @@ def chat():
         # RIDDLE HANDLING
         riddle_words = ["riddle","riddles","puzzle","brain","బుర్రకు","పజిల్","पहेली","புதிர்"]
         is_riddle = any(w in lower for w in riddle_words)
+        is_answer_request = any(w in lower for w in ["answer","reveal","tell me","solution","సమాధానం","जवाब","விடை"])
 
         if is_riddle and not is_joke:
             used_key = f"{session_id}_riddles"
@@ -492,8 +493,9 @@ def chat():
 Seed: {seed}
 Language: {language} — write riddle ONLY in {language}
 Format:
-Line 1-3: The riddle clues
-Last line: Answer: [answer]
+Line 1-3: The riddle clues only
+DO NOT show the answer — hide it
+Last line: "Can you guess? Reply 'answer' to know!"
 Make it clever but solvable. Never repeat common riddles."""
             response = client.chat.completions.create(
                 model="gpt-4o-mini",
